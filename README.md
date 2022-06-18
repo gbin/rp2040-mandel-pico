@@ -1,4 +1,4 @@
-# A small Mandelbrot demonstrator for the LILYGO T-Display RT2040 written in Rust
+# A small Mandelbrot set demonstrator for the LILYGO T-Display RT2040 written in Rust
 
 It should work on a Raspberry Pi Pico and a ST7789V screen with some minor modifications.
 
