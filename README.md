@@ -1,8 +1,9 @@
 # A small Mandelbrot set demonstrator for the LILYGO T-Display RT2040 written in Rust
 
 It should work on a Raspberry Pi Pico and a ST7789V screen with some minor modifications.
-
-![Render](/rp2040-mandel-pico/img/Mandelbrot_set_on_rp2040.jpg?raw=true "Example of a rendering")
+<div style="width:800px ; height:600px">
+![Render](https://github.com/gbin/rp2040-mandel-pico/blob/main/img/Mandelbrot_set_on_rp2040.jpg?raw=true "Example of a rendering")
+<div>
 
 ## Here are the instructions from the original project template.
 
