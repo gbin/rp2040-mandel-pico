@@ -1,6 +1,8 @@
-# Project template for rp2040-hal
+# A small Mandelbrot demonstrator for the LILYGO T-Display RT2040 written in Rust
 
-This template is intended as a starting point for developing your own firmware based on the rp2040-hal.
+It should work on a Raspberry Pi Pico and a ST7789V screen with some minor modifications.
+
+## Here are the instructions from the original project template.
 
 It includes all of the `knurling-rs` tooling as showcased in https://github.com/knurling-rs/app-template (`defmt`, `defmt-rtt`, `panic-probe`, `flip-link`) to make development as easy as possible.
 
