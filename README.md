@@ -2,6 +2,8 @@
 
 It should work on a Raspberry Pi Pico and a ST7789V screen with some minor modifications.
 
+![Render](/rp2040-mandel-pico/img/Mandelbrot_set_on_rp2040.jpg?raw=true "Example of a rendering")
+
 ## Here are the instructions from the original project template.
 
 It includes all of the `knurling-rs` tooling as showcased in https://github.com/knurling-rs/app-template (`defmt`, `defmt-rtt`, `panic-probe`, `flip-link`) to make development as easy as possible.
