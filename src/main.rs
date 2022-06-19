@@ -52,27 +52,10 @@ use st7789::ST7789;
 use st7789::Orientation;
 use display_interface_spi::SPIInterface;
 use rp_pico::hal::pio::PinState::Low;
+use crate::mandel::MAX_MANDEL_ITERATION;
 
-const MAX_MANDEL_ITERATION:i32 = 100;
+mod mandel;
 
-// Mandel is in the square:
-// x between (-2.00, 0.47)
-// y between (-1.12, 1.12)
-fn mandel(x:f64, y:f64) -> i32 {
-    let mut u = 0.0;
-    let mut v= 0.0;
-    let mut u2 = 0.0;
-    let mut v2 = 0.0;
-    let mut k=0;
-    while k< MAX_MANDEL_ITERATION && (u2+v2<4.0){
-        v = 2.0 * u * v + y;
-        u = u2 - v2 + x;
-        u2 = u * u;
-        v2 = v * v;
-        k = k + 1;
-    }
-    k
-}
 
 const SCREEN_FREQUENCY_HZ: u32 = 125_000_000u32;
 const SCREEN_BAUDRATE: u32 = 16_000_000u32;
@@ -156,7 +139,7 @@ fn main() -> ! {
 // x between (-2.00, 0.47)
 // y between (-1.12, 1.12)
             let x = (2.47 / w as f64) * (py as f64) - 2.00;
-            let iteration = mandel(x, y);
+            let iteration = mandel::mandel(x, y);
             if iteration == MAX_MANDEL_ITERATION {
                 lcd.set_pixel(px+52, py+40, 0xFFFF);
             } else {

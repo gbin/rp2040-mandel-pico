@@ -19,6 +19,7 @@ panic-halt = "*"
 rp-pico = "*"
 st7789 = "*"
 display-interface-spi = "*"
+# fixed = "*"
 
 # cargo build/run
 [profile.dev]
