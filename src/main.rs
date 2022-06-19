@@ -55,6 +55,8 @@ use rp_pico::hal::pio::PinState::Low;
 use crate::mandel::MAX_MANDEL_ITERATION;
 
 mod mandel;
+use fixed::types::I8F8;
+type FP = I8F8;
 
 
 const SCREEN_FREQUENCY_HZ: u32 = 125_000_000u32;
@@ -139,7 +141,7 @@ fn main() -> ! {
 // x between (-2.00, 0.47)
 // y between (-1.12, 1.12)
             let x = (2.47 / w as f64) * (py as f64) - 2.00;
-            let iteration = mandel::mandel(x, y);
+            let iteration = mandel::mandel_fp(FP::from_num(x), FP::from_num(y));
             if iteration == MAX_MANDEL_ITERATION {
                 lcd.set_pixel(px+52, py+40, 0xFFFF);
             } else {
