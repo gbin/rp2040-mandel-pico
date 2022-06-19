@@ -53,7 +53,7 @@ use st7789::Orientation;
 use display_interface_spi::SPIInterface;
 use rp_pico::hal::pio::PinState::Low;
 
-const max_mandel_iteration:i32 = 100;
+const MAX_MANDEL_ITERATION:i32 = 100;
 
 // Mandel is in the square:
 // x between (-2.00, 0.47)
@@ -64,7 +64,7 @@ fn mandel(x:f64, y:f64) -> i32 {
     let mut u2 = 0.0;
     let mut v2 = 0.0;
     let mut k=0;
-    while k<max_mandel_iteration && (u2+v2<4.0){
+    while k< MAX_MANDEL_ITERATION && (u2+v2<4.0){
         v = 2.0 * u * v + y;
         u = u2 - v2 + x;
         u2 = u * u;
@@ -82,8 +82,7 @@ const SCREEN_BAUDRATE: u32 = 16_000_000u32;
 /// The `#[entry]` macro ensures the Cortex-M start-up code calls this function
 /// as soon as all global variables are initialised.
 ///
-/// The function configures the RP2040 peripherals, then fades the LED in an
-/// infinite loop.
+/// The function configures the RP2040 peripherals.
 #[entry]
 fn main() -> ! {
     // Grab our singleton objects
@@ -158,7 +157,7 @@ fn main() -> ! {
 // y between (-1.12, 1.12)
             let x = (2.47 / w as f64) * (py as f64) - 2.00;
             let iteration = mandel(x, y);
-            if iteration == max_mandel_iteration {
+            if iteration == MAX_MANDEL_ITERATION {
                 lcd.set_pixel(px+52, py+40, 0xFFFF);
             } else {
                 lcd.set_pixel(px+52, py+40, (iteration%0xffff) as u16);
