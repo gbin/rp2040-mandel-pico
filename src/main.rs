@@ -51,12 +51,15 @@ const HIGH: u16 = 25000;
 use st7789::ST7789;
 use st7789::Orientation;
 use display_interface_spi::SPIInterface;
+use fixed::FixedI16;
 use rp_pico::hal::pio::PinState::Low;
 use crate::mandel::MAX_MANDEL_ITERATION;
 
 mod mandel;
-use fixed::types::I8F8;
-type FP = I8F8;
+//use fixed::types::I8F8;
+//type FP = I8F8;
+use fixed::types::{I0F16, I16F0, I16F16, I9F7};
+type FP = I9F7;
 
 
 const SCREEN_FREQUENCY_HZ: u32 = 125_000_000u32;
@@ -126,7 +129,7 @@ fn main() -> ! {
     const h:u16 = 135;
     const w:u16 = 240;
 
-    let mut lcd = ST7789::new(di, rst, h, w);
+    let mut lcd = ST7789::new(di, rst, h as u16, w as u16);
 
     // The delay object lets us wait for specified amounts of time (in
     // milliseconds)
@@ -136,16 +139,16 @@ fn main() -> ! {
     lcd.init(&mut delay);
 
     for px in 0..h {
-        let y = (2.24 / h as f64) * (px as f64) - 1.12;
+        let y : I16F16= (I16F16::from_num(2.24 / (h as f64))) * I16F16::from_num(px) - I16F16::from_num(1.12);
         for py in 0..w {
 // x between (-2.00, 0.47)
 // y between (-1.12, 1.12)
-            let x = (2.47 / w as f64) * (py as f64) - 2.00;
-            let iteration = mandel::mandel_fp(FP::from_num(x), FP::from_num(y));
+            let x:I16F16 = (I16F16::from_num(2.47) / I16F16::from_num(w)) * I16F16::from_num(py) - I16F16::from_num(2.00);
+            let iteration = mandel::mandel_fp(I16F16::to_num::<FP>(x), I16F16::to_num::<FP>(y));
             if iteration == MAX_MANDEL_ITERATION {
-                lcd.set_pixel(px+52, py+40, 0xFFFF);
+                lcd.set_pixel(px as u16 +52, py as u16 +40, 0xFFFF);
             } else {
-                lcd.set_pixel(px+52, py+40, (iteration%0xffff) as u16);
+                lcd.set_pixel(px as u16+52, py as u16 +40, (iteration%0xffff) as u16);
             }
         }
     }
