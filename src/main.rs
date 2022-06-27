@@ -11,6 +11,7 @@
 #![no_main]
 
 mod mandel;
+extern crate core;
 
 // The macro for our start-up function
 use rp_pico::entry;
@@ -64,10 +65,41 @@ use rp_pico::hal::{pac, Spi};
 const SCREEN_FREQUENCY_HZ: u32 = 125_000_000u32;
 const SCREEN_BAUDRATE: u32 = 16_000_000u32;
 
+const READY_MSG: u32 = 0x1;
+const START_MSG: u32 = 0x2;
+const DONE_MSG: u32 = 0x3;
 /// entry point for second core
 static mut CORE1_STACK: Stack<4096> = Stack::new();
-fn core1_task() -> ! {
-    loop {}
+fn core1_task(buffer: usize) -> ! {
+    let mut pac = unsafe { pac::Peripherals::steal() };
+
+    let mut sio = Sio::new(pac.SIO);
+    let mut buff: &mut [u16; GRAPHIC_BUFFER_SIZE] =
+        unsafe { &mut *(buffer as *mut [u16; GRAPHIC_BUFFER_SIZE]) };
+    let mut bx = I16F16::from_num(-2.00);
+    let mut ex = I16F16::from_num(0.47);
+    let mut by = I16F16::from_num(-1.12);
+    let mut ey = I16F16::from_num(1.12);
+    loop {
+        sio.fifo.write(READY_MSG);
+        bx = I16F16::from_bits(sio.fifo.read_blocking() as i32);
+        ex = I16F16::from_bits(sio.fifo.read_blocking() as i32);
+        by = I16F16::from_bits(sio.fifo.read_blocking() as i32);
+        ey = I16F16::from_bits(sio.fifo.read_blocking() as i32);
+
+        mandel::draw_on_buffer(
+            bx,
+            by,
+            ex,
+            ey,
+            0,
+            SCREEN_WIDTH / 2,
+            SCREEN_HEIGHT,
+            SCREEN_WIDTH,
+            buff,
+        );
+        sio.fifo.write(DONE_MSG);
+    }
 }
 
 /// Entry point to our bare-metal application.
@@ -107,7 +139,6 @@ fn main() -> ! {
     let mut mc = Multicore::new(&mut peripherals.PSM, &mut peripherals.PPB, &mut sio.fifo);
     let cores = mc.cores();
     let core1 = &mut cores[1];
-    let _test = core1.spawn(unsafe { &mut CORE1_STACK.mem }, core1_task);
     // end of multicore spawning
 
     // Set the pins up according to their function on this particular board
@@ -149,6 +180,12 @@ fn main() -> ! {
     let di = display_interface_spi::SPIInterface::new(spi, dc, cs);
 
     let mut buffer: [u16; GRAPHIC_BUFFER_SIZE] = [0; GRAPHIC_BUFFER_SIZE];
+    let buff_ptr = buffer.as_ptr() as usize;
+
+    let _test = core1.spawn(unsafe { &mut CORE1_STACK.mem }, move || {
+        core1_task(buff_ptr)
+    });
+
     let mut lcd = ST7789::new(di, rst, SCREEN_HEIGHT as u16, SCREEN_WIDTH as u16);
     let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().integer());
     lcd.init(&mut delay);
@@ -159,6 +196,11 @@ fn main() -> ! {
     let mut by = I16F16::from_num(-1.12);
     let mut ey = I16F16::from_num(1.12);
     loop {
+        sio.fifo.read_blocking(); // todo assert this it READY
+        sio.fifo.write(bx.to_bits() as u32);
+        sio.fifo.write(ex.to_bits() as u32);
+        sio.fifo.write(by.to_bits() as u32);
+        sio.fifo.write(ey.to_bits() as u32);
         mandel::draw_on_buffer(
             bx,
             by,
@@ -170,17 +212,8 @@ fn main() -> ! {
             SCREEN_WIDTH / 2,
             &mut buffer,
         );
-        mandel::draw_on_buffer(
-            bx,
-            by,
-            ex,
-            ey,
-            0,
-            SCREEN_WIDTH / 2,
-            SCREEN_HEIGHT,
-            SCREEN_WIDTH,
-            &mut buffer,
-        );
+        sio.fifo.read_blocking();
+
         lcd.set_pixels(52, 40, SCREEN_HEIGHT + 51, SCREEN_WIDTH + 39, buffer);
 
         // Run forever, setting the LED according to the button
