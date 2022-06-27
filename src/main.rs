@@ -10,6 +10,8 @@
 #![no_std]
 #![no_main]
 
+mod mandel;
+
 // The macro for our start-up function
 use rp_pico::entry;
 
@@ -32,7 +34,6 @@ use rp_pico::hal::prelude::*;
 
 // A shorter alias for the Peripheral Access Crate, which provides low-level
 // register access
-use rp_pico::hal::{pac, Spi};
 use rp_pico::hal::gpio::FunctionSpi;
 
 // A shorter alias for the Hardware Abstraction Layer, which provides
@@ -42,28 +43,32 @@ use rp_pico::hal;
 use embedded_hal::spi::{MODE_0, MODE_1, MODE_3};
 use embedded_time::rate::*;
 
-// The minimum PWM value (i.e. LED brightness) we want
-const LOW: u16 = 0;
-
-// The maximum PWM value (i.e. LED brightness) we want
-const HIGH: u16 = 25000;
-
 use st7789::ST7789;
 use st7789::Orientation;
 use display_interface_spi::SPIInterface;
 use fixed::FixedI16;
 use rp_pico::hal::pio::PinState::Low;
-use crate::mandel::MAX_MANDEL_ITERATION;
+use mandel::MAX_MANDEL_ITERATION;
 
-mod mandel;
-//use fixed::types::I8F8;
-//type FP = I8F8;
 use fixed::types::{I0F16, I16F0, I16F16, I9F7};
 type FP = I9F7;
 
 
+use embedded_graphics_core::pixelcolor::Rgb565;
+use embedded_graphics_core::draw_target::DrawTarget;
+use rp_pico::hal::{pac, Spi};
+use rp_pico::hal::gpio::Pins;
+use rp_pico::hal::sio::Sio;
+use rp_pico::hal::multicore::Multicore;
+use rp_pico::hal::multicore::Stack;
+use crate::mandel::{SCREEN_HEIGHT, SCREEN_WIDTH, GRAPHIC_BUFFER_SIZE };
+
 const SCREEN_FREQUENCY_HZ: u32 = 125_000_000u32;
 const SCREEN_BAUDRATE: u32 = 16_000_000u32;
+
+/// entry point for second core
+static mut CORE1_STACK: Stack<4096> = Stack::new();
+fn core1_task() -> ! { loop{} }
 
 /// Entry point to our bare-metal application.
 ///
@@ -96,7 +101,14 @@ fn main() -> ! {
         .unwrap();
 
     // The single-cycle I/O block controls our GPIO pins
-    let sio = hal::Sio::new(peripherals.SIO);
+    let mut sio = hal::Sio::new(peripherals.SIO);
+
+    /// Multicore spawning
+    let mut mc = Multicore::new(&mut peripherals.PSM, &mut peripherals.PPB, &mut sio.fifo);
+    let cores = mc.cores();
+    let core1 = &mut cores[1];
+    let _test = core1.spawn( unsafe { &mut CORE1_STACK.mem }, core1_task,);
+    // end of multicore spawning
 
     // Set the pins up according to their function on this particular board
     let pins = rp_pico::Pins::new(
@@ -110,7 +122,7 @@ fn main() -> ! {
     let mut pwr = pins.gpio22.into_push_pull_output();
     pwr.set_high().unwrap(); // needed
     let mut bl = pins.gpio4.into_push_pull_output();
-    bl.set_high().unwrap(); // needed
+    bl.set_high().unwrap(); // init the screen with no backlight so we cannot see the ugly memory dump at statup
 
     // Setup SPI on the GP0..GP5 pins
     let _ = pins.gpio2.into_mode::<FunctionSpi>();
@@ -122,78 +134,43 @@ fn main() -> ! {
     let mut cs = pins.gpio5.into_push_pull_output();
     cs.set_high().unwrap();
 
+    // Our LED output
+    let mut led_pin = pins.led.into_push_pull_output();
+    // Our button input
+    let button_pin = pins.gpio6.into_pull_up_input();
+
     let spi = Spi::<_, _, 8>::new(peripherals.SPI0).init(&mut peripherals.RESETS, SCREEN_FREQUENCY_HZ.Hz(), SCREEN_BAUDRATE.Hz(), &MODE_0);
 
     let di = display_interface_spi::SPIInterface::new(spi, dc, cs);
 
-    const h:u16 = 135;
-    const w:u16 = 240;
 
-    let mut lcd = ST7789::new(di, rst, h as u16, w as u16);
-
-    // The delay object lets us wait for specified amounts of time (in
-    // milliseconds)
+    let mut buffer:[u16; GRAPHIC_BUFFER_SIZE] = [0;GRAPHIC_BUFFER_SIZE];
+    let mut lcd = ST7789::new(di, rst, SCREEN_HEIGHT as u16, SCREEN_WIDTH as u16);
     let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().integer());
-
-    //lcd.hard_reset(&mut delay);
     lcd.init(&mut delay);
+    lcd.clear(Rgb565::new(255, 0, 0) );
 
-    for px in 0..h {
-        let y : I16F16= (I16F16::from_num(2.24 / (h as f64))) * I16F16::from_num(px) - I16F16::from_num(1.12);
-        for py in 0..w {
-// x between (-2.00, 0.47)
-// y between (-1.12, 1.12)
-            let x:I16F16 = (I16F16::from_num(2.47) / I16F16::from_num(w)) * I16F16::from_num(py) - I16F16::from_num(2.00);
-            let iteration = mandel::mandel_fp(I16F16::to_num::<FP>(x), I16F16::to_num::<FP>(y));
-            if iteration == MAX_MANDEL_ITERATION {
-                lcd.set_pixel(px as u16 +52, py as u16 +40, 0xFFFF);
+    let mut bx = I16F16::from_num(-2.00);
+    let mut ex = I16F16::from_num(0.47);
+    let mut by = I16F16::from_num(-1.12);
+    let mut ey = I16F16::from_num(1.12);
+    loop {
+        mandel::draw_on_buffer(bx, by, ex, ey, &mut buffer);
+        lcd.set_pixels(52, 40, SCREEN_HEIGHT + 51 , SCREEN_WIDTH +39, buffer);
+
+
+        // Run forever, setting the LED according to the button
+        loop {
+            if button_pin.is_low().unwrap() {
+                led_pin.set_high().unwrap();
+                bx = bx /2 + I16F16::from_num(0.2);
+                ex = ex /2 + I16F16::from_num(0.2);
+                by = by /2 + I16F16::from_num(0.2);
+                ey = ey /2 + I16F16::from_num(0.2);
+                break;
             } else {
-                lcd.set_pixel(px as u16+52, py as u16 +40, (iteration%0xffff) as u16);
+                led_pin.set_low().unwrap();
             }
         }
     }
-
-    // Our LED output
-    let mut led_pin = pins.led.into_push_pull_output();
-
-    // Our button input
-    let button_pin = pins.gpio6.into_pull_up_input();
-
-    // Run forever, setting the LED according to the button
-    loop {
-        if button_pin.is_low().unwrap() {
-            led_pin.set_high().unwrap();
-        } else {
-            led_pin.set_low().unwrap();
-        }
-    }
-    /*
-    // Init PWMs
-    let mut pwm_slices = hal::pwm::Slices::new(peripherals.PWM, &mut peripherals.RESETS);
-
-    // Configure PWM4
-    let pwm = &mut pwm_slices.pwm4;
-    pwm.set_ph_correct();
-    pwm.enable();
-
-    // Output channel B on PWM4 to the LED pin
-    let channel = &mut pwm.channel_b;
-    channel.output_to(pins.led);
-
-    // Infinite loop, fading LED up and down
-    loop {
-        // Ramp brightness up
-        for i in (LOW..=HIGH).skip(100) {
-            delay.delay_us(8);
-            channel.set_duty(i);
-        }
-
-        // Ramp brightness down
-        for i in (LOW..=HIGH).rev().skip(100) {
-            delay.delay_us(8);
-            channel.set_duty(i);
-        }
-
-        delay.delay_ms(500);
-    }*/
 }
