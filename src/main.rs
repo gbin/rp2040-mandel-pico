@@ -155,7 +155,8 @@ fn main() -> ! {
     let mut by = I16F16::from_num(-1.12);
     let mut ey = I16F16::from_num(1.12);
     loop {
-        mandel::draw_on_buffer(bx, by, ex, ey, &mut buffer);
+        mandel::draw_on_buffer(bx, by, ex, ey, 0, 0, SCREEN_HEIGHT, SCREEN_WIDTH/2, &mut buffer);
+        mandel::draw_on_buffer(bx, by, ex, ey, 0, SCREEN_WIDTH/2, SCREEN_HEIGHT, SCREEN_WIDTH, &mut buffer);
         lcd.set_pixels(52, 40, SCREEN_HEIGHT + 51 , SCREEN_WIDTH +39, buffer);
 
 
