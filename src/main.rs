@@ -19,9 +19,6 @@ use rp_pico::entry;
 // GPIO traits
 use embedded_hal::digital::v2::{InputPin, OutputPin};
 
-// GPIO traits
-use embedded_hal::PwmPin;
-
 // Time handling traits
 use embedded_time::rate::*;
 
@@ -40,23 +37,16 @@ use rp_pico::hal::gpio::FunctionSpi;
 // higher-level drivers.
 use rp_pico::hal;
 
-use embedded_hal::spi::{MODE_0, MODE_1, MODE_3};
-use embedded_time::rate::*;
+use embedded_hal::spi::MODE_0;
 
-use display_interface_spi::SPIInterface;
-use fixed::FixedI16;
-use mandel::MAX_MANDEL_ITERATION;
-use rp_pico::hal::pio::PinState::Low;
-use st7789::Orientation;
 use st7789::ST7789;
 
-use fixed::types::{I0F16, I16F0, I16F16, I9F7};
+use fixed::types::{I16F16, I9F7};
 type FP = I9F7;
 
 use crate::mandel::{GRAPHIC_BUFFER_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH};
 use embedded_graphics_core::draw_target::DrawTarget;
 use embedded_graphics_core::pixelcolor::Rgb565;
-use rp_pico::hal::gpio::Pins;
 use rp_pico::hal::multicore::Multicore;
 use rp_pico::hal::multicore::Stack;
 use rp_pico::hal::sio::Sio;
@@ -65,23 +55,25 @@ use rp_pico::hal::{pac, Spi};
 const SCREEN_FREQUENCY_HZ: u32 = 125_000_000u32;
 const SCREEN_BAUDRATE: u32 = 16_000_000u32;
 
-const READY_MSG: u32 = 0x1;
-const START_MSG: u32 = 0x2;
-const DONE_MSG: u32 = 0x3;
+enum Protocol {
+    ReadyMsg,
+    DoneMsg,
+}
+
 /// entry point for second core
 static mut CORE1_STACK: Stack<4096> = Stack::new();
-fn core1_task(buffer: usize) -> ! {
-    let mut pac = unsafe { pac::Peripherals::steal() };
+fn core1_task(buffer_ptr: usize) -> ! {
+    let pac = unsafe { pac::Peripherals::steal() };
 
     let mut sio = Sio::new(pac.SIO);
-    let mut buff: &mut [u16; GRAPHIC_BUFFER_SIZE] =
-        unsafe { &mut *(buffer as *mut [u16; GRAPHIC_BUFFER_SIZE]) };
-    let mut bx = I16F16::from_num(-2.00);
-    let mut ex = I16F16::from_num(0.47);
-    let mut by = I16F16::from_num(-1.12);
-    let mut ey = I16F16::from_num(1.12);
+    let buff: &mut [u16; GRAPHIC_BUFFER_SIZE] =
+        unsafe { &mut *(buffer_ptr as *mut [u16; GRAPHIC_BUFFER_SIZE]) };
+    let mut bx : I16F16;
+    let mut ex : I16F16;
+    let mut by : I16F16;
+    let mut ey : I16F16;
     loop {
-        sio.fifo.write(READY_MSG);
+        sio.fifo.write(Protocol::ReadyMsg as u32);
         bx = I16F16::from_bits(sio.fifo.read_blocking() as i32);
         ex = I16F16::from_bits(sio.fifo.read_blocking() as i32);
         by = I16F16::from_bits(sio.fifo.read_blocking() as i32);
@@ -98,7 +90,7 @@ fn core1_task(buffer: usize) -> ! {
             SCREEN_WIDTH,
             buff,
         );
-        sio.fifo.write(DONE_MSG);
+        sio.fifo.write(Protocol::DoneMsg as u32);
     }
 }
 
@@ -135,7 +127,7 @@ fn main() -> ! {
     // The single-cycle I/O block controls our GPIO pins
     let mut sio = hal::Sio::new(peripherals.SIO);
 
-    /// Multicore spawning
+    // Multicore spawning
     let mut mc = Multicore::new(&mut peripherals.PSM, &mut peripherals.PPB, &mut sio.fifo);
     let cores = mc.cores();
     let core1 = &mut cores[1];
@@ -189,7 +181,7 @@ fn main() -> ! {
     let mut lcd = ST7789::new(di, rst, SCREEN_HEIGHT as u16, SCREEN_WIDTH as u16);
     let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().integer());
     lcd.init(&mut delay);
-    lcd.clear(Rgb565::new(255, 0, 0));
+    lcd.clear(Rgb565::new(0, 0, 0));
 
     let mut bx = I16F16::from_num(-2.00);
     let mut ex = I16F16::from_num(0.47);
