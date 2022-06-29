@@ -79,7 +79,7 @@ fn core1_task(buffer_ptr: usize) -> ! {
         by = I16F16::from_bits(sio.fifo.read_blocking() as i32);
         ey = I16F16::from_bits(sio.fifo.read_blocking() as i32);
 
-        mandel::draw_on_buffer(
+        mandel::draw_on_buffer::<I16F16>(
             bx,
             by,
             ex,
@@ -193,7 +193,7 @@ fn main() -> ! {
         sio.fifo.write(ex.to_bits() as u32);
         sio.fifo.write(by.to_bits() as u32);
         sio.fifo.write(ey.to_bits() as u32);
-        mandel::draw_on_buffer(
+        mandel::draw_on_buffer::<I16F16>(
             bx,
             by,
             ex,
