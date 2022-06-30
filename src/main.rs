@@ -53,6 +53,8 @@ use rp_pico::hal::multicore::Stack;
 use rp_pico::hal::sio::Sio;
 use rp_pico::hal::{pac, Spi};
 
+use crate::mandel::tools::Rectangle;
+
 const SCREEN_FREQUENCY_HZ: u32 = 125_000_000u32;
 const SCREEN_BAUDRATE: u32 = 16_000_000u32;
 
@@ -64,35 +66,24 @@ enum Protocol {
 /// entry point for second core
 static mut CORE1_STACK: Stack<4096> = Stack::new();
 fn core1_task(buffer_ptr: usize) -> ! {
-    let pac = unsafe { pac::Peripherals::steal() };
+    const CORE1_SCREEN_REGION: Rectangle<u16> =
+        Rectangle::new(0, SCREEN_WIDTH / 2, SCREEN_HEIGHT, SCREEN_WIDTH);
 
+    let pac = unsafe { pac::Peripherals::steal() };
     let mut sio = Sio::new(pac.SIO);
     let buff: &mut [u16; GRAPHIC_BUFFER_SIZE] =
         unsafe { &mut *(buffer_ptr as *mut [u16; GRAPHIC_BUFFER_SIZE]) };
-    let mut bx: f32;
-    let mut ex: f32;
-    let mut by: f32;
-    let mut ey: f32;
+    let mut mr: Rectangle<f32> = Rectangle::zero_f32();
     loop {
         sio.fifo.write(Protocol::ReadyMsg as u32);
         unsafe {
-            bx = mem::transmute::<u32, f32>(sio.fifo.read_blocking());
-            ex = mem::transmute::<u32, f32>(sio.fifo.read_blocking());
-            by = mem::transmute::<u32, f32>(sio.fifo.read_blocking());
-            ey = mem::transmute::<u32, f32>(sio.fifo.read_blocking());
+            mr.bx = mem::transmute::<u32, f32>(sio.fifo.read_blocking());
+            mr.ex = mem::transmute::<u32, f32>(sio.fifo.read_blocking());
+            mr.by = mem::transmute::<u32, f32>(sio.fifo.read_blocking());
+            mr.ey = mem::transmute::<u32, f32>(sio.fifo.read_blocking());
         }
 
-        mandel::draw_on_buffer_dispatch(
-            bx,
-            by,
-            ex,
-            ey,
-            0,
-            SCREEN_WIDTH / 2,
-            SCREEN_HEIGHT,
-            SCREEN_WIDTH,
-            buff,
-        );
+        mandel::draw_on_buffer_dispatch(mr, CORE1_SCREEN_REGION, buff);
         sio.fifo.write(Protocol::DoneMsg as u32);
     }
 }
@@ -186,41 +177,41 @@ fn main() -> ! {
     lcd.init(&mut delay);
     lcd.clear(Rgb565::new(0, 0, 0));
 
-    let mut bx = -2.00f32;
-    let mut ex = 0.47f32;
-    let mut by = -1.12f32;
-    let mut ey = 1.12f32;
+    let mut mr = Rectangle {
+        bx: -2.00f32,
+        ex: 0.47f32,
+        by: -1.12f32,
+        ey: 1.12f32,
+    };
+    const CORE0_SCREEN_REGION: Rectangle<u16> = Rectangle {
+        bx: 0,
+        ex: 0,
+        by: SCREEN_HEIGHT,
+        ey: SCREEN_WIDTH / 2,
+    };
     loop {
         sio.fifo.read_blocking(); // todo assert this it READY
         unsafe {
-            sio.fifo.write(mem::transmute::<f32, u32>(bx));
-            sio.fifo.write(mem::transmute::<f32, u32>(ex));
-            sio.fifo.write(mem::transmute::<f32, u32>(by));
-            sio.fifo.write(mem::transmute::<f32, u32>(ey));
+            sio.fifo.write(mem::transmute::<f32, u32>(mr.bx));
+            sio.fifo.write(mem::transmute::<f32, u32>(mr.ex));
+            sio.fifo.write(mem::transmute::<f32, u32>(mr.by));
+            sio.fifo.write(mem::transmute::<f32, u32>(mr.ey));
         }
-        mandel::draw_on_buffer_dispatch(
-            bx,
-            by,
-            ex,
-            ey,
-            0,
-            0,
-            SCREEN_HEIGHT,
-            SCREEN_WIDTH / 2,
-            &mut buffer,
-        );
+        mandel::draw_on_buffer_dispatch(mr, CORE0_SCREEN_REGION, &mut buffer);
         sio.fifo.read_blocking();
 
+        // those constants are arbitrary offsets for the LCD (still haven't found where they are coming from or what the exact coordinate system is supposed to be).
         lcd.set_pixels(52, 40, SCREEN_HEIGHT + 51, SCREEN_WIDTH + 39, buffer);
 
         // Run forever, setting the LED according to the button
         loop {
             if button_pin.is_low().unwrap() {
                 led_pin.set_high().unwrap();
-                bx = bx / 2.0 + 0.2;
-                ex = ex / 2.0 + 0.2;
-                by = by / 2.0 + 0.2;
-                ey = ey / 2.0 + 0.2;
+                // change the drawing region
+                mr.bx = mr.bx / 2.0 + 0.2;
+                mr.ex = mr.ex / 2.0 + 0.2;
+                mr.by = mr.by / 2.0 + 0.2;
+                mr.ey = mr.ey / 2.0 + 0.2;
                 break;
             } else {
                 led_pin.set_low().unwrap();
