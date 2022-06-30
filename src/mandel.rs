@@ -1,5 +1,5 @@
-use fixed::traits::Fixed;
 use crate::FP;
+use fixed::traits::Fixed;
 use fixed::types::I16F16;
 
 pub const MAX_MANDEL_ITERATION: i32 = 100;
@@ -53,7 +53,7 @@ pub fn mandel_fp<T: fixed::traits::Fixed>(x: T, y: T) -> i32 {
 /// pby = target pixel top right coord y
 /// pex = target pixel bottom left coord x
 /// pey = target pixel bottom right coord y
-pub fn draw_on_buffer<P: Fixed>(
+pub fn draw_on_buffer_inner<P: Fixed>(
     bx: P,
     by: P,
     ex: P,
@@ -68,8 +68,7 @@ pub fn draw_on_buffer<P: Fixed>(
     for py in pby..pey {
         let x: P = ((ex - bx) / P::from_num(SCREEN_WIDTH)) * P::from_num(py) + bx;
         for px in pbx..pex {
-            let y: P =
-                ((ey - by) / P::from_num(SCREEN_HEIGHT)) * P::from_num(px) + by;
+            let y: P = ((ey - by) / P::from_num(SCREEN_HEIGHT)) * P::from_num(px) + by;
             let iteration = mandel_fp(P::to_num::<FP>(x), P::to_num::<FP>(y));
             if iteration == MAX_MANDEL_ITERATION {
                 color = 0xffff;
@@ -79,4 +78,28 @@ pub fn draw_on_buffer<P: Fixed>(
             buffer[(py * SCREEN_HEIGHT + px) as usize] = color;
         }
     }
+}
+
+pub fn draw_on_buffer_dispatch(
+    bx: f32,
+    by: f32,
+    ex: f32,
+    ey: f32,
+    pbx: u16,
+    pby: u16,
+    pex: u16,
+    pey: u16,
+    buffer: &mut [u16; GRAPHIC_BUFFER_SIZE],
+) {
+    draw_on_buffer_inner::<I16F16>(
+        I16F16::from_num(bx),
+        I16F16::from_num(by),
+        I16F16::from_num(ex),
+        I16F16::from_num(ey),
+        pbx,
+        pby,
+        pex,
+        pey,
+        buffer,
+    );
 }

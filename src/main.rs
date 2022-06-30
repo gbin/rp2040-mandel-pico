@@ -13,6 +13,7 @@
 mod mandel;
 extern crate core;
 
+use core::mem;
 // The macro for our start-up function
 use rp_pico::entry;
 
@@ -68,18 +69,20 @@ fn core1_task(buffer_ptr: usize) -> ! {
     let mut sio = Sio::new(pac.SIO);
     let buff: &mut [u16; GRAPHIC_BUFFER_SIZE] =
         unsafe { &mut *(buffer_ptr as *mut [u16; GRAPHIC_BUFFER_SIZE]) };
-    let mut bx : I16F16;
-    let mut ex : I16F16;
-    let mut by : I16F16;
-    let mut ey : I16F16;
+    let mut bx: f32;
+    let mut ex: f32;
+    let mut by: f32;
+    let mut ey: f32;
     loop {
         sio.fifo.write(Protocol::ReadyMsg as u32);
-        bx = I16F16::from_bits(sio.fifo.read_blocking() as i32);
-        ex = I16F16::from_bits(sio.fifo.read_blocking() as i32);
-        by = I16F16::from_bits(sio.fifo.read_blocking() as i32);
-        ey = I16F16::from_bits(sio.fifo.read_blocking() as i32);
+        unsafe {
+            bx = mem::transmute::<u32, f32>(sio.fifo.read_blocking());
+            ex = mem::transmute::<u32, f32>(sio.fifo.read_blocking());
+            by = mem::transmute::<u32, f32>(sio.fifo.read_blocking());
+            ey = mem::transmute::<u32, f32>(sio.fifo.read_blocking());
+        }
 
-        mandel::draw_on_buffer::<I16F16>(
+        mandel::draw_on_buffer_dispatch(
             bx,
             by,
             ex,
@@ -183,17 +186,19 @@ fn main() -> ! {
     lcd.init(&mut delay);
     lcd.clear(Rgb565::new(0, 0, 0));
 
-    let mut bx = I16F16::from_num(-2.00);
-    let mut ex = I16F16::from_num(0.47);
-    let mut by = I16F16::from_num(-1.12);
-    let mut ey = I16F16::from_num(1.12);
+    let mut bx = -2.00f32;
+    let mut ex = 0.47f32;
+    let mut by = -1.12f32;
+    let mut ey = 1.12f32;
     loop {
         sio.fifo.read_blocking(); // todo assert this it READY
-        sio.fifo.write(bx.to_bits() as u32);
-        sio.fifo.write(ex.to_bits() as u32);
-        sio.fifo.write(by.to_bits() as u32);
-        sio.fifo.write(ey.to_bits() as u32);
-        mandel::draw_on_buffer::<I16F16>(
+        unsafe {
+            sio.fifo.write(mem::transmute::<f32, u32>(bx));
+            sio.fifo.write(mem::transmute::<f32, u32>(ex));
+            sio.fifo.write(mem::transmute::<f32, u32>(by));
+            sio.fifo.write(mem::transmute::<f32, u32>(ey));
+        }
+        mandel::draw_on_buffer_dispatch(
             bx,
             by,
             ex,
@@ -212,10 +217,10 @@ fn main() -> ! {
         loop {
             if button_pin.is_low().unwrap() {
                 led_pin.set_high().unwrap();
-                bx = bx / 2 + I16F16::from_num(0.2);
-                ex = ex / 2 + I16F16::from_num(0.2);
-                by = by / 2 + I16F16::from_num(0.2);
-                ey = ey / 2 + I16F16::from_num(0.2);
+                bx = bx / 2.0 + 0.2;
+                ex = ex / 2.0 + 0.2;
+                by = by / 2.0 + 0.2;
+                ey = ey / 2.0 + 0.2;
                 break;
             } else {
                 led_pin.set_low().unwrap();
