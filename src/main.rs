@@ -185,8 +185,8 @@ fn main() -> ! {
     };
     const CORE0_SCREEN_REGION: Rectangle<u16> = Rectangle {
         bx: 0,
-        ex: 0,
-        by: SCREEN_HEIGHT,
+        by: 0,
+        ex: SCREEN_HEIGHT,
         ey: SCREEN_WIDTH / 2,
     };
     loop {
