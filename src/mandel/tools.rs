@@ -2,7 +2,7 @@ use crate::mandel::tools;
 use fixed::traits::Fixed;
 
 /// represents a 2-corner coordinates
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct Rectangle<T> {
     pub(crate) bx: T,
     pub(crate) by: T,
@@ -17,13 +17,8 @@ impl<T> Rectangle<T> {
 }
 
 impl Rectangle<f32> {
-    pub const fn zero_f32() -> Rectangle<f32> {
-        Rectangle::<f32> {
-            bx: 0.0,
-            by: 0.0,
-            ex: 0.0,
-            ey: 0.0,
-        }
+    fn width(&mut self) -> f32 {
+        self.ey - self.by
     }
 }
 
@@ -34,14 +29,6 @@ impl<T: Fixed> Rectangle<T> {
             by: T::from_num(src.by),
             ex: T::from_num(src.ex),
             ey: T::from_num(src.ey),
-        }
-    }
-    pub const fn zero() -> Rectangle<T> {
-        Rectangle::<T> {
-            bx: T::ZERO,
-            by: T::ZERO,
-            ex: T::ZERO,
-            ey: T::ZERO,
         }
     }
 }

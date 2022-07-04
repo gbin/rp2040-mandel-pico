@@ -73,7 +73,7 @@ fn core1_task(buffer_ptr: usize) -> ! {
     let mut sio = Sio::new(pac.SIO);
     let buff: &mut [u16; GRAPHIC_BUFFER_SIZE] =
         unsafe { &mut *(buffer_ptr as *mut [u16; GRAPHIC_BUFFER_SIZE]) };
-    let mut mr: Rectangle<f32> = Rectangle::zero_f32();
+    let mut mr: Rectangle<f32> = Rectangle::default();
     loop {
         sio.fifo.write(Protocol::ReadyMsg as u32);
         unsafe {
