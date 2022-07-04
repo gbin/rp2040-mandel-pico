@@ -4,10 +4,10 @@ use fixed::traits::Fixed;
 /// represents a 2-corner coordinates
 #[derive(Clone, Copy, Default)]
 pub struct Rectangle<T> {
-    pub(crate) bx: T,
-    pub(crate) by: T,
-    pub(crate) ex: T,
-    pub(crate) ey: T,
+    pub bx: T,
+    pub by: T,
+    pub ex: T,
+    pub ey: T,
 }
 
 impl<T> Rectangle<T> {
@@ -16,8 +16,15 @@ impl<T> Rectangle<T> {
     }
 }
 
+// We don't have the std so we cannot just add the substract Trait from std::
 impl Rectangle<f32> {
-    fn width(&mut self) -> f32 {
+    pub fn width(&self) -> f32 {
+        self.ey - self.by
+    }
+}
+
+impl Rectangle<u16> {
+    pub fn width(&self) -> u16 {
         self.ey - self.by
     }
 }

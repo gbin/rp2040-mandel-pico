@@ -3,7 +3,7 @@ pub(crate) mod tools;
 use crate::mandel::tools::Rectangle;
 use crate::FP;
 use fixed::traits::Fixed;
-use fixed::types::I16F16;
+use fixed::types::{I16F16, I16F48};
 
 pub const MAX_MANDEL_ITERATION: i32 = 100;
 
@@ -84,8 +84,18 @@ pub fn draw_on_buffer_dispatch(
     screen_region: Rectangle<u16>,
     buffer: &mut [u16; GRAPHIC_BUFFER_SIZE],
 ) {
-    draw_on_buffer_inner::<I16F16>(
-        Rectangle::<I16F16>::from(mandel_region),
+    // Test if 16 bits of float precision is enough.
+    if mandel_region.width() / screen_region.width() as f32 > (1/2^14) as f32 {
+        draw_on_buffer_inner::<I16F16>(
+            Rectangle::<I16F16>::from(mandel_region),
+            screen_region,
+            buffer,
+        );
+        return;
+    }
+    // if not, jump to the next precision.
+    draw_on_buffer_inner::<I16F48>(
+        Rectangle::<I16F48>::from(mandel_region),
         screen_region,
         buffer,
     );
