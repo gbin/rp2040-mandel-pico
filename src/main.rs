@@ -43,7 +43,6 @@ use embedded_hal::spi::MODE_0;
 use st7789::ST7789;
 
 use fixed::types::{I16F16, I9F7};
-type FP = I9F7;
 
 use crate::mandel::{GRAPHIC_BUFFER_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH};
 use embedded_graphics_core::draw_target::DrawTarget;
