@@ -1,11 +1,21 @@
-# A small Mandelbrot set demonstrator for the LILYGO T-Display RT2040 written in Rust
+# A small Mandelbrot set demonstrator for the LILYGO T-Display RT2040 written in Rust.
 
 It should work on a Raspberry Pi Pico and a ST7789V screen with some minor modifications.
 
+It demonstrate a more complete example using the buttons, with multiprocessing and communication through the queue between the cores and finally leveraging the awesome Rust fixed point library to optimize the execution as the RP2040 doesn't have a floating point unit.
+
+The button allows you to zoom in the Mandelbrot set.
+
+Pull Requests are welcome!
+
 ![Render](/img/Mandelbrot_set_on_rp2040.jpg?raw=true "Example of a rendering")
 
-The naive f64 emulated floating points version:  32.02s
-The inner loop as 16bit fixed points: 4.22s
+The naive f64 emulated floating points version single core:  32.02s
+
+The inner loop as 16bit fixed points single core: 4.22s
+
+Fixed point dual core: <1s
+
 
 ## Here are the instructions from the original project template.
 
